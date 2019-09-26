@@ -50,7 +50,8 @@ lane :mainnet do |options|
   increment_build_number(build_number: build_number)
 
   sync_code_signing(
-    username: ENV['ITUNESCONNECT_USER'],
+    readonly: is_ci,
+    username: ENV['MATCH_USER'],
     app_identifier: mainnet_ids,
     type: "appstore"
   )
@@ -77,7 +78,9 @@ end
 private_lane :pre_upload do
   ensure_bundle_exec
   sh("python3 check_localizable.py")
-  ensure_git_status_clean
+  if not is_ci?
+    ensure_git_status_clean
+  end
 end
 
 def check_release_branch(prefix)
@@ -103,7 +106,8 @@ lane :testnet do
   )
 
   sync_code_signing(
-    username: ENV['ITUNESCONNECT_USER'],
+    readonly: is_ci,
+    username: ENV['MATCH_USER'],
     app_identifier: app_identifier,
     type: "appstore"
   )
@@ -151,7 +155,8 @@ lane :release do
   )
 
   sync_code_signing(
-    username: ENV['ITUNESCONNECT_USER'],
+    readonly: is_ci,
+    username: ENV['MATCH_USER'],
     app_identifier: app_identifier,
     type: "appstore"
   )
@@ -234,5 +239,20 @@ end
 
 lane :clean do
   reset_git_repo(force: true, disregard_gitignore: false)
+end
+
+lane :travis do
+  setup_travis
+
+  branch = git_branch
+  if branch.start_with?('release/testflight-')
+    testnet
+  elsif branch.start_with?('release/mainnet-')
+    mainnet
+  elsif branch.start_with?('release/appstore-')
+    release
+  else
+    tests
+  end
 end
 
